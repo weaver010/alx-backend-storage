@@ -1,36 +1,36 @@
 #!/usr/bin/env python3
 """
-Web file
+sample use case of caching
 """
-import requests
+
+from requests import get
 import redis
 from functools import wraps
 
-store = redis.Redis()
+
+def count_decorator(func: callable) -> callable:
+    """
+    decorator to enable caching
+    """
+    @wraps
+    def cache(url):
+        """
+        wrapper function
+        """
+        cache = redis.Redis()
+        key = "count:{}".format(url)
+        if not cache.exists(key):
+            cache.setex(key, 10, 1)
+        else:
+            cache.incr(key)
+        return func(url)
+    return cache
 
 
-def count_url_access(method):
-    """ Decorator counting how many times
-    a Url is accessed """
-    @wraps(method)
-    def wrapper(url):
-        cached_key = "cached:" + url
-        cached_data = store.get(cached_key)
-        if cached_data:
-            return cached_data.decode("utf-8")
-
-        count_key = "count:" + url
-        html = method(url)
-
-        store.incr(count_key)
-        store.set(cached_key, html)
-        store.expire(cached_key, 10)
-        return html
-    return wrapper
-
-
-@count_url_access
+@count_decorator
 def get_page(url: str) -> str:
-    """ Returns HTML content of a url """
-    res = requests.get(url)
-    return res.text
+    """
+    retrives the content of an html page, and also caches it
+    """
+    html = get(url)
+    return html.content
